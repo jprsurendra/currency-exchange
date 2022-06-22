@@ -1,13 +1,9 @@
 package com.example.demo.service;
 
-import com.example.demo.config.ConfigProperties;
-import com.example.demo.vo.CurrencyExchangeRate;
-import com.example.demo.vo.ForexRateWrapper;
+
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.modelmapper.ModelMapper;
-import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -239,32 +235,7 @@ public class CurrencyExchangeService {
 
         return lstForexRate;
     }
-	
-	public CurrencyExchangeRate findForexRateByCurrencyCode(String currencyCode){
-        CurrencyExchangeRate forexRateData = null;
-        try {
-            currencyCode = currencyCode.trim().toUpperCase();
-            if(currencyCode == "USD"){ // USD to USD conversion, not required DB data
-                forexRateData = new CurrencyExchangeRate(currencyCode, currencyCode, BigDecimal.ONE, null);
-            }else{
-                ForexRate forexRate = this.findCurrencyCode(currencyCode);
-                if(forexRate == null){
-                    forexRateData = new CurrencyExchangeRate("USD", currencyCode, null, "CurrencyCode (" +currencyCode + ") not found.");
-                }else {
-                    forexRateData = new CurrencyExchangeRate(forexRate.getBaseCurrency().getCurrencyCode(), forexRate.getToCurrency().getCurrencyCode(), forexRate.getConversionRate(), null);
-                }
-            }
-        }catch (Exception e){
-            if(currencyCode==null){
-                currencyCode = "--";
-            }
-            forexRateData = new CurrencyExchangeRate("USD", currencyCode, null, "CurrencyCode (" +currencyCode + ") not found.");
-        }
 
-        return forexRateData;
-    }
-	
-	
 
     public Map<String, String> currencyConversion(String from, String to, BigDecimal fromAmount) throws Exception {
         Map<String, String> result = new HashMap<>();
@@ -276,7 +247,7 @@ public class CurrencyExchangeService {
 
 
         from = from.trim().toUpperCase();
-        if(from == "USD") {
+        if(from.equals("USD")) {
             amount = fromAmount;
         }else{
             forexRate = this.findCurrencyCode(from);
@@ -284,7 +255,7 @@ public class CurrencyExchangeService {
                 BigDecimal one = new BigDecimal(1);
                 conversionRate = forexRate.getConversionRate();
                 amount = one.divide(conversionRate, 6, RoundingMode.HALF_DOWN);
-                result.put("ConversionRate "+ from + " to USD", amount.toString());
+                result.put("ForexRate "+ from + " to USD", amount.toString());
                 amount = fromAmount.multiply(amount);
             }else {
                 throw new Exception("ForexRate not found for currencyCode (" +from + ").");
@@ -294,12 +265,12 @@ public class CurrencyExchangeService {
 
 
         to = to.trim().toUpperCase();
-        if(from == "USD") {
+        if(to.equals("USD")) {
             // No Change required, already in USD
         }else{
             forexRate = this.findCurrencyCode(to);
             if(forexRate != null){
-                result.put("ConversionRate USD to "+ to , amount.toString());
+                result.put("ForexRate USD to "+ to , forexRate.getConversionRate().toString());
                 amount = amount.multiply(forexRate.getConversionRate());
             }else {
                 throw new Exception("ForexRate not found for currencyCode (" +to + ").");
@@ -309,7 +280,7 @@ public class CurrencyExchangeService {
         result.put("From Currency", from);
         result.put("From Amount", fromAmount.toString());
 
-        result.put("Converted Currency", from);
+        result.put("Converted Currency", to);
         result.put("Converted Amount", amount.toString());
 
         return result;

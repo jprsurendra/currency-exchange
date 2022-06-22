@@ -1,6 +1,7 @@
 package com.example.demo.service;
 
 
+import com.example.demo.vo.CurrencyVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -237,52 +238,58 @@ public class CurrencyExchangeService {
     }
 
 
-    public Map<String, String> currencyConversion(String from, String to, BigDecimal fromAmount) throws Exception {
-        Map<String, String> result = new HashMap<>();
+    public Map<String, Object> currencyConversion(String from, String to, BigDecimal fromAmount) throws Exception {
+        Map<String, Object> result = new HashMap<>();
         String error = null;
         ForexRate forexRate;
         BigDecimal conversionRate;
+        BigDecimal amount=null;
 
-        BigDecimal amount;
 
-
-        from = from.trim().toUpperCase();
-        if(from.equals("USD")) {
-            amount = fromAmount;
-        }else{
-            forexRate = this.findCurrencyCode(from);
-            if(forexRate != null){
-                BigDecimal one = new BigDecimal(1);
-                conversionRate = forexRate.getConversionRate();
-                amount = one.divide(conversionRate, 6, RoundingMode.HALF_DOWN);
-                result.put("ForexRate "+ from + " to USD", amount.toString());
-                amount = fromAmount.multiply(amount);
-            }else {
-                throw new Exception("ForexRate not found for currencyCode (" +from + ").");
+        try {
+            from = from.trim().toUpperCase();
+            result.put("Source Amount", new CurrencyVO(from, fromAmount));
+            if (from.equals("USD")) {
+                amount = fromAmount;
+            } else {
+                forexRate = this.findCurrencyCode(from);
+                if (forexRate != null) {
+                    BigDecimal one = new BigDecimal(1);
+                    conversionRate = forexRate.getConversionRate();
+                    amount = one.divide(conversionRate, 6, RoundingMode.HALF_DOWN);
+                    result.put("ForexRate " + from + " to USD", amount.toString());
+                    amount = fromAmount.multiply(amount);
+                } else {
+                    amount = null;
+                    result.put("Error", "ForexRate not found for currencyCode (" + from + ").");
+                    // throw new Exception("ForexRate not found for currencyCode (" +from + ").");
+                }
             }
-        }
 
 
+            if (amount != null) {
+                to = to.trim().toUpperCase();
+                if (to.equals("USD")) {
+                    // No Change required, already in USD
+                } else {
+                    forexRate = this.findCurrencyCode(to);
+                    if (forexRate != null) {
+                        result.put("ForexRate USD to " + to, forexRate.getConversionRate().toString());
+                        amount = amount.multiply(forexRate.getConversionRate());
+                    } else {
+                        amount = null;
+                        result.put("Error", "ForexRate not found for currencyCode (" + to + ").");
+                        // throw new Exception("ForexRate not found for currencyCode (" + to + ").");
+                    }
+                }
 
-        to = to.trim().toUpperCase();
-        if(to.equals("USD")) {
-            // No Change required, already in USD
-        }else{
-            forexRate = this.findCurrencyCode(to);
-            if(forexRate != null){
-                result.put("ForexRate USD to "+ to , forexRate.getConversionRate().toString());
-                amount = amount.multiply(forexRate.getConversionRate());
-            }else {
-                throw new Exception("ForexRate not found for currencyCode (" +to + ").");
+                if (amount != null) {
+                    result.put("Converted Amount", new CurrencyVO(to, amount));
+                }
             }
+        }catch (Exception e){
+            result.put("Error", "There are some errors on server. Please try again.");
         }
-
-        result.put("From Currency", from);
-        result.put("From Amount", fromAmount.toString());
-
-        result.put("Converted Currency", to);
-        result.put("Converted Amount", amount.toString());
-
         return result;
     }
 	
